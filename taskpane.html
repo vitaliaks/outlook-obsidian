@@ -11,6 +11,21 @@
   <main class="shell taskpane">
     <img class="logo" src="icons/icon-80.png" alt="" width="80" height="80">
     <h1>Outlook to Obsidian</h1>
+
+    <form id="settings-form" class="settings">
+      <label for="vault-name">Vault name</label>
+      <input id="vault-name" name="vaultName" type="text" autocomplete="off" required>
+
+      <label for="target-folder">Target folder</label>
+      <input id="target-folder" name="targetFolder" type="text" value="Inbox/Email" autocomplete="off" required>
+
+      <div class="button-row">
+        <button type="submit">Save settings</button>
+        <button id="reset-settings" class="secondary" type="button">Reset</button>
+      </div>
+      <p class="settings-note">Only these settings are stored locally. Email content is never stored.</p>
+    </form>
+
     <button id="save-button" type="button" disabled>Save to Obsidian</button>
     <p id="status" class="status" role="status" aria-live="polite">Loading…</p>
   </main>

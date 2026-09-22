@@ -15,7 +15,7 @@ The only external runtime resource is Microsoft Office.js, loaded from Microsoft
 - The add-in only reads `Office.context.mailbox.item`, the item currently open in Outlook.
 - It does not enumerate the mailbox, access attachments, or modify an Outlook item.
 - It makes no `fetch`, XMLHttpRequest, WebSocket, or similar application network call.
-- It stores no email data in localStorage, sessionStorage, IndexedDB, cookies, or remote storage.
+- It stores no email data in localStorage, sessionStorage, IndexedDB, cookies, or remote storage. Only the user-entered vault name and target folder are kept in localStorage.
 - Markdown and YAML are generated locally. Dynamic content is never inserted into task-pane HTML.
 - The encoded Markdown passes directly to the locally registered Obsidian URI handler.
 - There are no secrets, credentials, analytics, or telemetry.
@@ -35,17 +35,12 @@ See [privacy.html](privacy.html) for the user-facing privacy statement.
 
 ## Configure Obsidian
 
-Edit the configuration block at the top of `taskpane.js`:
+Open the add-in task pane and enter:
 
-```js
-const CONFIG = Object.freeze({
-  VAULT_NAME: "CHANGE_ME",
-  TARGET_FOLDER: "Inbox/Email",
-  MAX_OBSIDIAN_URI_LENGTH: 8000
-});
-```
+- **Vault name** — the exact, case-sensitive name of the local Obsidian vault.
+- **Target folder** — the vault-relative destination folder; the default is `Inbox/Email`.
 
-Set `VAULT_NAME` to the exact, case-sensitive name of your local Obsidian vault. The add-in refuses to run while it remains `CHANGE_ME`. Set `TARGET_FOLDER` to the vault-relative folder where notes should be created; the default is `Inbox/Email`. Do not use `.` or `..` path segments.
+Choose **Save settings**. These two values are stored only in localStorage for the GitHub Pages task-pane origin. Email content is never stored. Use **Reset** to remove the saved configuration. Do not use `.` or `..` path segments in the target folder.
 
 ## Configure and enable GitHub Pages
 
@@ -101,7 +96,7 @@ Obsidian's URI mechanism places the entire note in a URL. Browsers, embedded Out
 
 ## Troubleshooting
 
-- **Set VAULT_NAME…** — replace `CHANGE_ME` in `taskpane.js`, commit, and wait for Pages to redeploy.
+- **Enter and save your Obsidian settings** — provide the vault name and target folder in the task pane, then choose **Save settings**.
 - **Add-in does not appear** — confirm the message is opened in read mode, the manifest has real HTTPS URLs, and custom add-ins are permitted by the Microsoft 365 administrator.
 - **Task pane is blank** — open the configured `taskpane.html` URL directly, verify GitHub Pages deployment, HTTPS, and the browser console. Office.js only initializes fully inside Office.
 - **Unable to read this Outlook item** — confirm the current item is a received email rather than an appointment, compose form, or unsupported item type.
@@ -111,4 +106,4 @@ Obsidian's URI mechanism places the entire note in a URL. Browsers, embedded Out
 
 ## Security review checklist
 
-Before release, verify that the manifest still requests only `ReadItem`, `taskpane.js` contains no network/storage APIs, all hosted URLs are HTTPS and point to this repository, only Office.js is externally loaded, and `CHANGE_ME` has been replaced.
+Before release, verify that the manifest still requests only `ReadItem`, no email data is written to browser storage, all hosted URLs are HTTPS and point to this repository, and only Office.js is externally loaded.

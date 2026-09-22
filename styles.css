@@ -34,11 +34,59 @@ button {
 }
 
 button:disabled { cursor: wait; opacity: 0.6; }
+.settings {
+  margin: 1.5rem 0;
+  padding: 1rem;
+  border: 1px solid #c7d0da;
+  border-radius: 0.5rem;
+  text-align: left;
+}
+
+.settings label {
+  display: block;
+  margin: 0.75rem 0 0.25rem;
+  font-weight: 650;
+}
+
+.settings label:first-child { margin-top: 0; }
+
+.settings input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 0.6rem;
+  border: 1px solid #8d99a6;
+  border-radius: 0.3rem;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+
+.button-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+button.secondary {
+  border: 1px solid #8d99a6;
+  background: transparent;
+  color: inherit;
+}
+
+.settings-note {
+  margin: 0.75rem 0 0;
+  color: #52606d;
+  font-size: 0.8rem;
+}
+
 .status { min-height: 1.5em; }
 .status.error { color: #b42318; }
 
 @media (prefers-color-scheme: dark) {
   :root { background: #121820; color: #edf2f7; }
   a { color: #78b9f2; }
+  .settings { border-color: #52606d; }
+  .settings-note { color: #aab7c4; }
   .status.error { color: #ff8a80; }
 }

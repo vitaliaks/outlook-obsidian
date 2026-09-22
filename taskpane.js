@@ -1,15 +1,23 @@
 "use strict";
 
-// Configuration: set the exact, case-sensitive name of your local Obsidian vault.
 const CONFIG = Object.freeze({
-  VAULT_NAME: "CHANGE_ME",
-  TARGET_FOLDER: "Inbox/Email",
-  // Conservative cross-client safety guard; the URI is never truncated.
+  DEFAULT_TARGET_FOLDER: "Inbox/Email",
+  STORAGE_KEY: "outlook-to-obsidian-settings-v1",
   MAX_OBSIDIAN_URI_LENGTH: 8000
 });
 
 const saveButton = document.getElementById("save-button");
 const statusElement = document.getElementById("status");
+const settingsForm = document.getElementById("settings-form");
+const vaultNameInput = document.getElementById("vault-name");
+const targetFolderInput = document.getElementById("target-folder");
+const resetSettingsButton = document.getElementById("reset-settings");
+
+let settings = loadSettings();
+showSettings(settings);
+
+settingsForm.addEventListener("submit", saveSettings);
+resetSettingsButton.addEventListener("click", resetSettings);
 
 Office.onReady((info) => {
   if (info.host !== Office.HostType.Outlook) {
@@ -17,14 +25,14 @@ Office.onReady((info) => {
     return;
   }
 
-  saveButton.disabled = false;
-  setStatus("Ready");
+  updateSaveButton();
+  setStatus(settings ? "Ready" : "Enter and save your Obsidian settings.");
   saveButton.addEventListener("click", saveCurrentEmail);
 });
 
 async function saveCurrentEmail() {
-  if (CONFIG.VAULT_NAME === "CHANGE_ME" || !CONFIG.VAULT_NAME.trim()) {
-    setStatus("Set VAULT_NAME in taskpane.js before using the add-in.", true);
+  if (!settings) {
+    setStatus("Enter and save your Obsidian settings first.", true);
     return;
   }
 
@@ -49,7 +57,7 @@ async function saveCurrentEmail() {
 
     const markdown = createMarkdown(email);
     const fileName = createFileName(email.date, email.subject);
-    const uri = createObsidianUri(fileName, markdown);
+    const uri = createObsidianUri(fileName, markdown, settings);
 
     if (uri.length > CONFIG.MAX_OBSIDIAN_URI_LENGTH) {
       setStatus("Email is too large for safe URI transfer. Nothing was truncated or sent.", true);
@@ -65,6 +73,78 @@ async function saveCurrentEmail() {
   } finally {
     saveButton.disabled = false;
   }
+}
+
+function saveSettings(event) {
+  event.preventDefault();
+
+  try {
+    const nextSettings = validateSettings({
+      vaultName: vaultNameInput.value,
+      targetFolder: targetFolderInput.value
+    });
+    localStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify(nextSettings));
+    settings = nextSettings;
+    showSettings(settings);
+    updateSaveButton();
+    setStatus("Settings saved locally.");
+  } catch (error) {
+    console.error("Unable to save settings:", error);
+    setStatus(error.message || "Unable to save settings locally.", true);
+  }
+}
+
+function resetSettings() {
+  try {
+    localStorage.removeItem(CONFIG.STORAGE_KEY);
+  } catch (error) {
+    console.error("Unable to clear settings:", error);
+  }
+
+  settings = null;
+  showSettings(null);
+  updateSaveButton();
+  setStatus("Settings reset.");
+}
+
+function loadSettings() {
+  try {
+    const stored = localStorage.getItem(CONFIG.STORAGE_KEY);
+    return stored ? validateSettings(JSON.parse(stored)) : null;
+  } catch (error) {
+    console.error("Unable to load settings:", error);
+    return null;
+  }
+}
+
+function validateSettings(value) {
+  const vaultName = textOrEmpty(value && value.vaultName).trim();
+  const targetFolder = normalizeFolder(textOrEmpty(value && value.targetFolder));
+
+  if (!vaultName) throw new Error("Vault name is required.");
+  if (/[\u0000-\u001f\u007f]/.test(vaultName)) throw new Error("Vault name contains invalid characters.");
+  if (!targetFolder) throw new Error("Target folder is invalid.");
+
+  return { vaultName, targetFolder };
+}
+
+function normalizeFolder(value) {
+  const folder = value.trim().replace(/\\/g, "/").replace(/^\/+|\/+$/g, "");
+  if (!folder || folder.split("/").some((part) =>
+    !part || part === "." || part === ".." || /[<>:"|?*\u0000-\u001f\u007f]/.test(part)
+  )) {
+    return "";
+  }
+  return folder;
+}
+
+function showSettings(value) {
+  vaultNameInput.value = value ? value.vaultName : "";
+  targetFolderInput.value = value ? value.targetFolder : CONFIG.DEFAULT_TARGET_FOLDER;
+}
+
+function updateSaveButton() {
+  saveButton.disabled = !settings;
 }
 
 function getBodyAsText(body) {
@@ -157,15 +237,10 @@ function createFileName(isoDate, subject) {
   return `${date ? date[0] : "Unknown date"} - ${safeSubject}`;
 }
 
-function createObsidianUri(fileName, content) {
-  const folder = CONFIG.TARGET_FOLDER.replace(/\\/g, "/").replace(/^\/+|\/+$/g, "");
-  if (!folder || folder.split("/").some((part) => !part || part === "." || part === "..")) {
-    throw new Error("TARGET_FOLDER is invalid.");
-  }
-
+function createObsidianUri(fileName, content, currentSettings) {
   const params = new URLSearchParams({
-    vault: CONFIG.VAULT_NAME.trim(),
-    file: `${folder}/${fileName}.md`,
+    vault: currentSettings.vaultName,
+    file: `${currentSettings.targetFolder}/${fileName}.md`,
     content,
     overwrite: "false"
   });
