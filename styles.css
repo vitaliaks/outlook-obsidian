@@ -18,6 +18,7 @@ body { margin: 0; }
 .taskpane { max-width: 24rem; }
 .logo { border-radius: 18%; }
 h1 { margin: 1rem 0; font-size: 1.5rem; }
+.app-version { margin: -0.65rem 0 1rem; color: #697786; font-size: 0.78rem; }
 p { line-height: 1.5; }
 a { color: #075ea8; }
 
@@ -126,6 +127,7 @@ button.secondary {
 @media (prefers-color-scheme: dark) {
   :root { background: #121820; color: #edf2f7; }
   a { color: #78b9f2; }
+  .app-version { color: #aab7c4; }
   .settings { border-color: #52606d; }
   .settings-note { color: #aab7c4; }
   .status.error { color: #ff8a80; }

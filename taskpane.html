@@ -3,16 +3,17 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src https://appsforoffice.microsoft.com 'self'; style-src 'self'; img-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none';">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src https://officeapis.public.onecdn.static.microsoft https://appsforoffice.microsoft.com 'self'; style-src 'self'; img-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none';">
   <title>Outlook to Obsidian</title>
-  <link rel="stylesheet" href="styles.css?v=1.0.3">
-  <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
-  <script src="taskpane.js?v=1.0.3" defer></script>
+  <link rel="stylesheet" href="styles.css?v=1.0.4">
+  <script src="https://officeapis.public.onecdn.static.microsoft/1/office.js"></script>
+  <script src="taskpane.js?v=1.0.4" defer></script>
 </head>
 <body>
   <main class="shell taskpane">
     <img class="logo" src="icons/icon-80.png" alt="" width="80" height="80">
     <h1>Outlook to Obsidian</h1>
+    <p class="app-version">Version <span id="app-version">…</span></p>
 
     <form id="settings-form" class="settings">
       <label for="vault-name">Vault name</label>

@@ -5,7 +5,7 @@
            xmlns:mailappor="http://schemas.microsoft.com/office/mailappversionoverrides/1.0"
            xsi:type="MailApp">
   <Id>97cf0d19-58de-4faf-b311-c613bd53f9e8</Id>
-  <Version>1.0.3.0</Version>
+  <Version>1.0.4.0</Version>
   <ProviderName>Outlook to Obsidian</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
   <DisplayName DefaultValue="Outlook to Obsidian"/>
@@ -27,7 +27,7 @@
   <FormSettings>
     <Form xsi:type="ItemRead">
       <DesktopSettings>
-        <SourceLocation DefaultValue="https://vitaliaks.github.io/outlook-obsidian/taskpane.html?v=1.0.3"/>
+        <SourceLocation DefaultValue="https://vitaliaks.github.io/outlook-obsidian/taskpane.html?v=1.0.4"/>
         <RequestedHeight>320</RequestedHeight>
       </DesktopSettings>
     </Form>
@@ -81,8 +81,8 @@
         <bt:Image id="Icon.80" DefaultValue="https://vitaliaks.github.io/outlook-obsidian/icons/icon-80.png"/>
       </bt:Images>
       <bt:Urls>
-        <bt:Url id="Commands.Url" DefaultValue="https://vitaliaks.github.io/outlook-obsidian/taskpane.html?v=1.0.3"/>
-        <bt:Url id="Taskpane.Url" DefaultValue="https://vitaliaks.github.io/outlook-obsidian/taskpane.html?v=1.0.3"/>
+        <bt:Url id="Commands.Url" DefaultValue="https://vitaliaks.github.io/outlook-obsidian/taskpane.html?v=1.0.4"/>
+        <bt:Url id="Taskpane.Url" DefaultValue="https://vitaliaks.github.io/outlook-obsidian/taskpane.html?v=1.0.4"/>
       </bt:Urls>
       <bt:ShortStrings>
         <bt:String id="Group.Label" DefaultValue="Outlook to Obsidian"/>

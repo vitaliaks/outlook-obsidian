@@ -1,7 +1,7 @@
 "use strict";
 
 const CONFIG = Object.freeze({
-  BUILD_VERSION: "1.0.3",
+  BUILD_VERSION: "1.0.4",
   DEFAULT_TARGET_FOLDER: "Inbox/Email",
   STORAGE_KEY: "outlook-to-obsidian-settings-v1",
   MAX_OBSIDIAN_URI_LENGTH: 8000
@@ -16,8 +16,10 @@ const resetSettingsButton = document.getElementById("reset-settings");
 const continueLink = document.getElementById("continue-link");
 const debugOutput = document.getElementById("debug-output");
 const copyDebugButton = document.getElementById("copy-debug");
+const appVersionElement = document.getElementById("app-version");
 const debugEvents = [];
 
+appVersionElement.textContent = CONFIG.BUILD_VERSION;
 debugLog("Script loaded", { build: CONFIG.BUILD_VERSION });
 
 let settings = loadSettings();
@@ -32,8 +34,15 @@ copyDebugButton.addEventListener("click", copyDiagnostics);
 saveButton.addEventListener("click", saveCurrentEmail);
 
 window.addEventListener("error", (event) => {
+  if (event.target && event.target !== window) {
+    debugLog("Resource load failed", {
+      element: textOrEmpty(event.target.tagName).toLowerCase() || "unknown",
+      resource: safeResourceUrl(event.target.src || event.target.href)
+    });
+    return;
+  }
   debugLog("Unhandled error", safeError(event.error || event.message));
-});
+}, true);
 
 window.addEventListener("unhandledrejection", (event) => {
   debugLog("Unhandled promise rejection", safeError(event.reason));
@@ -43,9 +52,15 @@ const officeApiDetected = typeof Office !== "undefined" && typeof Office.onReady
 debugLog("Office API detected", { detected: officeApiDetected });
 
 if (officeApiDetected) {
+  Office.initialize = (reason) => {
+    debugLog("Office.initialize called", { reason: String(reason || "unknown") });
+    markOfficeReady("Office.initialize");
+  };
+
   Office.onReady((info) => {
-    officeReady = info.host === Office.HostType.Outlook;
+    officeReady = info.host === Office.HostType.Outlook || Boolean(Office.context.mailbox);
     debugLog("Office ready", {
+      source: "Office.onReady",
       host: textOrEmpty(info.host) || "unknown",
       platform: textOrEmpty(info.platform) || "unknown",
       outlookReady: officeReady,
@@ -68,10 +83,10 @@ if (officeApiDetected) {
 
 window.setTimeout(() => {
   if (!officeReady) {
-    debugLog("Office.onReady timeout", { milliseconds: 5000 });
+    debugLog("Office initialization timeout", { milliseconds: 15000 });
     setStatus("Office.js is not ready. See Diagnostics.", true);
   }
-}, 5000);
+}, 15000);
 
 async function saveCurrentEmail() {
   debugLog("Save button selected");
@@ -320,7 +335,7 @@ function createObsidianUri(fileName, content, currentSettings) {
 }
 
 function createBridgeUrl(obsidianUri) {
-  const bridge = new URL("open-obsidian.html?v=1.0.3", window.location.href);
+  const bridge = new URL("open-obsidian.html?v=1.0.4", window.location.href);
   bridge.hash = encodeURIComponent(obsidianUri);
   return bridge.toString();
 }
@@ -372,6 +387,25 @@ function safeError(error) {
       .replace(/[\w.+-]+@[\w.-]+/g, "[email redacted]")
       .slice(0, 240) || "No error message"
   };
+}
+
+function safeResourceUrl(value) {
+  try {
+    const url = new URL(String(value || ""), window.location.href);
+    return `${url.origin}${url.pathname}`;
+  } catch (error) {
+    return "unknown";
+  }
+}
+
+function markOfficeReady(source) {
+  officeReady = Boolean(Office.context && Office.context.mailbox);
+  debugLog("Office initialization fallback", {
+    source,
+    mailboxAvailable: officeReady,
+    openBrowserWindow: Boolean(Office.context && Office.context.ui && typeof Office.context.ui.openBrowserWindow === "function")
+  });
+  setStatus(officeReady ? (settings ? "Ready" : "Enter and save your Obsidian settings.") : "Outlook mailbox API is unavailable.", !officeReady);
 }
 
 function textOrEmpty(value) {
