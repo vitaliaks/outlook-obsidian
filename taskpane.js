@@ -252,7 +252,7 @@ function createObsidianUri(fileName, content, currentSettings) {
 }
 
 function createBridgeUrl(obsidianUri) {
-  const bridge = new URL("open-obsidian.html", window.location.href);
+  const bridge = new URL("open-obsidian.html?v=1.0.1", window.location.href);
   bridge.hash = encodeURIComponent(obsidianUri);
   return bridge.toString();
 }
