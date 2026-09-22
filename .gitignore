@@ -1,0 +1,26 @@
+# macOS
+.DS_Store
+._*
+
+# Editor and IDE state
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Logs and temporary files
+*.log
+*.tmp
+*.temp
+
+# Local environment files and secrets
+.env
+.env.*
+!.env.example
+
+# Dependency directory, if development tooling is used locally
+node_modules/
+
+# Test coverage
+coverage/

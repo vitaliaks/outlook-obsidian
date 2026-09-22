@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src https://appsforoffice.microsoft.com 'self'; style-src 'self'; img-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none';">
+  <title>Outlook to Obsidian</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="shell taskpane">
+    <img class="logo" src="icons/icon-80.png" alt="" width="80" height="80">
+    <h1>Outlook to Obsidian</h1>
+    <button id="save-button" type="button" disabled>Save to Obsidian</button>
+    <p id="status" class="status" role="status" aria-live="polite">Loading…</p>
+  </main>
+  <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+  <script src="taskpane.js"></script>
+</body>
+</html>
