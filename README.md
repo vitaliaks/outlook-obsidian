@@ -19,6 +19,7 @@ The only external runtime resource is Microsoft Office.js, loaded from Microsoft
 - Markdown and YAML are generated locally. Dynamic content is never inserted into task-pane HTML.
 - The encoded Markdown passes directly to the locally registered Obsidian URI handler.
 - The browser handoff carries the encoded note in a URL fragment. URL fragments aren't included in HTTP requests, so GitHub Pages never receives the note; the handoff page removes the fragment from the address bar immediately after reading it.
+- The task pane includes an in-memory diagnostics panel. It records only execution stages, client capability flags, character counts, and sanitized errors—never email content, subject, sender, recipients, filenames, settings values, or generated URLs. Diagnostics aren't transmitted or persisted.
 - There are no secrets, credentials, analytics, or telemetry.
 
 The manifest requests `ReadItem`, the minimum permission needed to read the current message body and metadata. It does not request `ReadWriteMailbox` or `ReadWriteItem`.
@@ -107,6 +108,7 @@ Obsidian's URI mechanism places the entire note in a URL. Browsers, embedded Out
 - **Obsidian does not open** — on the browser handoff page, select **Open Obsidian**; then confirm Obsidian is installed, the OS registered the `obsidian://` handler, and the configured vault name is exact.
 - **Large email warning** — the full note exceeded the conservative URI limit. Nothing was truncated. Version 1 intentionally has no network or local-storage fallback.
 - **Changes do not appear** — allow time for GitHub Pages and the Outlook webview cache to refresh; then close and reopen the task pane.
+- **Nothing happens after Save to Obsidian** — expand **Diagnostics**, select **Save to Obsidian** again, then copy or screenshot the diagnostic events. The events identify whether the failure occurs while reading Outlook, constructing the URI, opening the browser, or launching the protocol handler.
 
 ## Security review checklist
 

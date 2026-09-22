@@ -103,6 +103,26 @@ button.secondary {
 
 .continue-link[hidden] { display: none; }
 
+.debug-panel {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  border: 1px dashed #8d99a6;
+  border-radius: 0.35rem;
+  text-align: left;
+}
+
+.debug-panel summary { cursor: pointer; font-weight: 650; }
+
+.debug-panel pre {
+  max-height: 16rem;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 0.72rem;
+  line-height: 1.4;
+  user-select: text;
+}
+
 @media (prefers-color-scheme: dark) {
   :root { background: #121820; color: #edf2f7; }
   a { color: #78b9f2; }

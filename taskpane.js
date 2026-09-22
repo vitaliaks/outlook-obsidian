@@ -1,6 +1,7 @@
 "use strict";
 
 const CONFIG = Object.freeze({
+  BUILD_VERSION: "1.0.2",
   DEFAULT_TARGET_FOLDER: "Inbox/Email",
   STORAGE_KEY: "outlook-to-obsidian-settings-v1",
   MAX_OBSIDIAN_URI_LENGTH: 8000
@@ -13,15 +14,36 @@ const vaultNameInput = document.getElementById("vault-name");
 const targetFolderInput = document.getElementById("target-folder");
 const resetSettingsButton = document.getElementById("reset-settings");
 const continueLink = document.getElementById("continue-link");
+const debugOutput = document.getElementById("debug-output");
+const copyDebugButton = document.getElementById("copy-debug");
+const debugEvents = [];
+
+debugLog("Script loaded", { build: CONFIG.BUILD_VERSION });
 
 let settings = loadSettings();
 showSettings(settings);
+debugLog("Settings loaded", { configured: Boolean(settings) });
 
 settingsForm.addEventListener("submit", saveSettings);
 resetSettingsButton.addEventListener("click", resetSettings);
+copyDebugButton.addEventListener("click", copyDiagnostics);
+
+window.addEventListener("error", (event) => {
+  debugLog("Unhandled error", safeError(event.error || event.message));
+});
+
+window.addEventListener("unhandledrejection", (event) => {
+  debugLog("Unhandled promise rejection", safeError(event.reason));
+});
 
 Office.onReady((info) => {
+  debugLog("Office ready", {
+    host: textOrEmpty(info.host) || "unknown",
+    platform: textOrEmpty(info.platform) || "unknown",
+    openBrowserWindow: Boolean(Office.context.ui && typeof Office.context.ui.openBrowserWindow === "function")
+  });
   if (info.host !== Office.HostType.Outlook) {
+    debugLog("Unsupported host");
     setStatus("This page must be opened from Outlook.", true);
     return;
   }
@@ -32,7 +54,9 @@ Office.onReady((info) => {
 });
 
 async function saveCurrentEmail() {
+  debugLog("Save button selected");
   if (!settings) {
+    debugLog("Save stopped", { reason: "settings missing" });
     setStatus("Enter and save your Obsidian settings first.", true);
     return;
   }
@@ -43,11 +67,18 @@ async function saveCurrentEmail() {
 
   try {
     const item = Office.context.mailbox && Office.context.mailbox.item;
+    debugLog("Outlook item inspected", {
+      present: Boolean(item),
+      type: item && item.itemType ? String(item.itemType) : "unknown",
+      hasBody: Boolean(item && item.body)
+    });
     if (!item || item.itemType !== Office.MailboxEnums.ItemType.Message || !item.body) {
       throw new Error("The current Outlook item is not a readable email message.");
     }
 
+    debugLog("Body read requested", { coercion: "text" });
     const body = await getBodyAsText(item.body);
+    debugLog("Body read succeeded", { characters: textOrEmpty(body).length });
     const email = {
       subject: textOrEmpty(item.subject),
       from: formatAddress(item.from || item.sender),
@@ -61,18 +92,27 @@ async function saveCurrentEmail() {
     const fileName = createFileName(email.date, email.subject);
     const uri = createObsidianUri(fileName, markdown, settings);
     const bridgeUrl = createBridgeUrl(uri);
+    debugLog("Note prepared", {
+      markdownCharacters: markdown.length,
+      obsidianUriCharacters: uri.length,
+      handoffUrlCharacters: bridgeUrl.length,
+      limit: CONFIG.MAX_OBSIDIAN_URI_LENGTH
+    });
 
     if (bridgeUrl.length > CONFIG.MAX_OBSIDIAN_URI_LENGTH) {
+      debugLog("Save stopped", { reason: "handoff URL exceeds limit" });
       setStatus("Email is too large for safe URI transfer. Nothing was truncated or sent.", true);
       return;
     }
 
     continueLink.href = bridgeUrl;
     continueLink.hidden = false;
+    debugLog("Fallback link displayed");
 
     openBridge(bridgeUrl);
   } catch (error) {
     console.error("Unable to create Obsidian note:", error);
+    debugLog("Save failed", safeError(error));
     setStatus("Unable to read this Outlook item.", true);
   } finally {
     saveButton.disabled = false;
@@ -92,9 +132,11 @@ function saveSettings(event) {
     showSettings(settings);
     updateSaveButton();
     setStatus("Settings saved locally.");
+    debugLog("Settings saved", { configured: true });
   } catch (error) {
     console.error("Unable to save settings:", error);
     setStatus(error.message || "Unable to save settings locally.", true);
+    debugLog("Settings save failed", safeError(error));
   }
 }
 
@@ -109,6 +151,7 @@ function resetSettings() {
   showSettings(null);
   updateSaveButton();
   setStatus("Settings reset.");
+  debugLog("Settings reset");
 }
 
 function loadSettings() {
@@ -252,23 +295,58 @@ function createObsidianUri(fileName, content, currentSettings) {
 }
 
 function createBridgeUrl(obsidianUri) {
-  const bridge = new URL("open-obsidian.html?v=1.0.1", window.location.href);
+  const bridge = new URL("open-obsidian.html?v=1.0.2", window.location.href);
   bridge.hash = encodeURIComponent(obsidianUri);
   return bridge.toString();
 }
 
 function openBridge(bridgeUrl) {
+  debugLog("Browser handoff requested", {
+    officeApiAvailable: Boolean(Office.context.ui && typeof Office.context.ui.openBrowserWindow === "function")
+  });
   if (Office.context.ui && typeof Office.context.ui.openBrowserWindow === "function") {
     try {
       Office.context.ui.openBrowserWindow(bridgeUrl);
+      debugLog("Office openBrowserWindow returned without throwing");
       setStatus("Continue in the browser window to open Obsidian.");
       return;
     } catch (error) {
       console.error("Unable to open the browser automatically:", error);
+      debugLog("Office openBrowserWindow threw", safeError(error));
     }
   }
 
   setStatus("Select Continue in browser to open Obsidian.");
+  debugLog("Manual browser handoff required");
+}
+
+async function copyDiagnostics() {
+  try {
+    await navigator.clipboard.writeText(debugOutput.textContent);
+    setStatus("Diagnostics copied.");
+  } catch (error) {
+    debugLog("Copy diagnostics failed", safeError(error));
+    setStatus("Unable to copy diagnostics. Take a screenshot instead.", true);
+  }
+}
+
+function debugLog(event, details) {
+  const time = new Date().toISOString().slice(11, 23);
+  const suffix = details === undefined ? "" : ` ${JSON.stringify(details)}`;
+  debugEvents.push(`${time} ${event}${suffix}`);
+  if (debugEvents.length > 40) debugEvents.shift();
+  if (debugOutput) debugOutput.textContent = debugEvents.join("\n");
+}
+
+function safeError(error) {
+  const value = error && typeof error === "object" ? error : { message: String(error || "Unknown error") };
+  return {
+    name: textOrEmpty(value.name).slice(0, 80) || "Error",
+    code: value.code === undefined ? "" : String(value.code).slice(0, 80),
+    message: textOrEmpty(value.message)
+      .replace(/[\w.+-]+@[\w.-]+/g, "[email redacted]")
+      .slice(0, 240) || "No error message"
+  };
 }
 
 function textOrEmpty(value) {
