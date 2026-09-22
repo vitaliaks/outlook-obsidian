@@ -12,6 +12,7 @@ const settingsForm = document.getElementById("settings-form");
 const vaultNameInput = document.getElementById("vault-name");
 const targetFolderInput = document.getElementById("target-folder");
 const resetSettingsButton = document.getElementById("reset-settings");
+const continueLink = document.getElementById("continue-link");
 
 let settings = loadSettings();
 showSettings(settings);
@@ -37,6 +38,7 @@ async function saveCurrentEmail() {
   }
 
   saveButton.disabled = true;
+  continueLink.hidden = true;
   setStatus("Reading email...");
 
   try {
@@ -58,15 +60,17 @@ async function saveCurrentEmail() {
     const markdown = createMarkdown(email);
     const fileName = createFileName(email.date, email.subject);
     const uri = createObsidianUri(fileName, markdown, settings);
+    const bridgeUrl = createBridgeUrl(uri);
 
-    if (uri.length > CONFIG.MAX_OBSIDIAN_URI_LENGTH) {
+    if (bridgeUrl.length > CONFIG.MAX_OBSIDIAN_URI_LENGTH) {
       setStatus("Email is too large for safe URI transfer. Nothing was truncated or sent.", true);
       return;
     }
 
-    setStatus("Opening Obsidian...");
-    window.location.assign(uri);
-    setStatus("Email saved/opened in Obsidian.");
+    continueLink.href = bridgeUrl;
+    continueLink.hidden = false;
+
+    openBridge(bridgeUrl);
   } catch (error) {
     console.error("Unable to create Obsidian note:", error);
     setStatus("Unable to read this Outlook item.", true);
@@ -245,6 +249,26 @@ function createObsidianUri(fileName, content, currentSettings) {
     overwrite: "false"
   });
   return `obsidian://new?${params.toString()}`;
+}
+
+function createBridgeUrl(obsidianUri) {
+  const bridge = new URL("open-obsidian.html", window.location.href);
+  bridge.hash = encodeURIComponent(obsidianUri);
+  return bridge.toString();
+}
+
+function openBridge(bridgeUrl) {
+  if (Office.context.ui && typeof Office.context.ui.openBrowserWindow === "function") {
+    try {
+      Office.context.ui.openBrowserWindow(bridgeUrl);
+      setStatus("Continue in the browser window to open Obsidian.");
+      return;
+    } catch (error) {
+      console.error("Unable to open the browser automatically:", error);
+    }
+  }
+
+  setStatus("Select Continue in browser to open Obsidian.");
 }
 
 function textOrEmpty(value) {

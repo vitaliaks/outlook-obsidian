@@ -74,6 +74,18 @@ button.secondary {
   color: inherit;
 }
 
+.button-link {
+  display: block;
+  padding: 0.75rem 1rem;
+  border-radius: 0.35rem;
+  background: #0b5cab;
+  color: #fff;
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.button-link[hidden] { display: none; }
+
 .settings-note {
   margin: 0.75rem 0 0;
   color: #52606d;
@@ -82,6 +94,14 @@ button.secondary {
 
 .status { min-height: 1.5em; }
 .status.error { color: #b42318; }
+
+.continue-link {
+  display: block;
+  margin-top: 0.75rem;
+  font-weight: 650;
+}
+
+.continue-link[hidden] { display: none; }
 
 @media (prefers-color-scheme: dark) {
   :root { background: #121820; color: #edf2f7; }

@@ -6,7 +6,7 @@ A minimal Outlook add-in that reads the currently opened email, generates Markdo
 
 ## Architecture
 
-The project has no build step and no backend. It uses static HTML and CSS, vanilla JavaScript, Microsoft Office.js, and an `obsidian://new` URI. It has no Node.js runtime, package dependencies, database, analytics, telemetry, cookies, or other application APIs.
+The project has no build step and no backend. It uses static HTML and CSS, vanilla JavaScript, Microsoft Office.js, and an `obsidian://new` URI. Because Office webviews don't support opening custom protocols directly, a static HTTPS handoff page opens in the system browser first. It has no Node.js runtime, package dependencies, database, analytics, telemetry, cookies, or other application APIs.
 
 The only external runtime resource is Microsoft Office.js, loaded from Microsoft's official CDN at `https://appsforoffice.microsoft.com/lib/1/hosted/office.js`, as required for Office add-ins. Icons, styles, and application code are served from this repository's GitHub Pages site.
 
@@ -18,6 +18,7 @@ The only external runtime resource is Microsoft Office.js, loaded from Microsoft
 - It stores no email data in localStorage, sessionStorage, IndexedDB, cookies, or remote storage. Only the user-entered vault name and target folder are kept in localStorage.
 - Markdown and YAML are generated locally. Dynamic content is never inserted into task-pane HTML.
 - The encoded Markdown passes directly to the locally registered Obsidian URI handler.
+- The browser handoff carries the encoded note in a URL fragment. URL fragments aren't included in HTTP requests, so GitHub Pages never receives the note; the handoff page removes the fragment from the address bar immediately after reading it.
 - There are no secrets, credentials, analytics, or telemetry.
 
 The manifest requests `ReadItem`, the minimum permission needed to read the current message body and metadata. It does not request `ReadWriteMailbox` or `ReadWriteItem`.
@@ -29,6 +30,7 @@ See [privacy.html](privacy.html) for the user-facing privacy statement.
 - `manifest.xml` — sideloadable Outlook add-in manifest.
 - `index.html` — GitHub Pages landing page.
 - `taskpane.html`, `taskpane.js`, `styles.css` — task pane UI and local conversion logic.
+- `open-obsidian.html`, `open-obsidian.js` — static browser handoff for launching the local Obsidian URI handler.
 - `privacy.html` — privacy statement.
 - `icons/` — local PNG manifest icons.
 - `.nojekyll` — prevents Jekyll processing on GitHub Pages.
@@ -78,9 +80,10 @@ This XML add-in manifest targets Outlook on the web and Outlook on Mac where the
 1. Confirm Obsidian is installed, the configured vault exists, and the `obsidian://` protocol opens Obsidian.
 2. Open an email containing quotes, colons, non-ASCII characters, multiple To/CC recipients, and a multiline body.
 3. Open the add-in and select **Save to Obsidian**.
-4. Verify the note appears under `Inbox/Email`, its YAML parses, and Outlook's item remains unchanged.
-5. Repeat with missing CC, a missing sender/date where possible, and a long email.
-6. In browser developer tools, verify there are no application network requests containing email data. Loading Office.js from Microsoft's CDN is expected.
+4. In the browser handoff page, select **Open Obsidian** and approve the browser prompt.
+5. Verify the note appears under `Inbox/Email`, its YAML parses, and Outlook's item remains unchanged.
+6. Repeat with missing CC, a missing sender/date where possible, and a long email.
+7. In browser developer tools, verify there are no application network requests containing email data. Loading Office.js from Microsoft's CDN is expected.
 
 ## Known limitations
 
@@ -88,11 +91,11 @@ This XML add-in manifest targets Outlook on the web and Outlook on Mac where the
 - Outlook's plain-text body conversion can lose formatting from HTML messages. The add-in deliberately requests `Office.CoercionType.Text`.
 - File names are sanitized and the subject portion is limited to 120 characters for filesystem compatibility; the email subject inside the note and the email body are not truncated.
 - `overwrite=false` is requested. How a name collision is presented or resolved depends on the installed Obsidian version.
-- Outlook client and tenant policies determine whether custom add-ins and custom protocol navigation are allowed.
+- Outlook client and tenant policies determine whether custom add-ins are allowed. The system browser and macOS determine whether the final custom-protocol navigation is approved.
 
 ### Obsidian URI length
 
-Obsidian's URI mechanism places the entire note in a URL. Browsers, embedded Outlook webviews, operating systems, and protocol handlers impose different URL-length limits; Obsidian does not provide one universal safe maximum for every client. This implementation conservatively refuses any generated URI longer than 8,000 characters. It displays **Email is too large for safe URI transfer** and does not silently truncate, store, or transmit the note. You can adjust `MAX_OBSIDIAN_URI_LENGTH`, but a larger value may fail on some client/OS combinations.
+Obsidian's URI mechanism places the entire note in a URL. Browsers, embedded Outlook webviews, operating systems, and protocol handlers impose different URL-length limits; Obsidian does not provide one universal safe maximum for every client. This implementation conservatively refuses any generated browser handoff URL longer than 8,000 characters. It displays **Email is too large for safe URI transfer** and does not silently truncate, store, or transmit the note. You can adjust `MAX_OBSIDIAN_URI_LENGTH`, but a larger value may fail on some client/OS combinations.
 
 ## Troubleshooting
 
@@ -100,7 +103,8 @@ Obsidian's URI mechanism places the entire note in a URL. Browsers, embedded Out
 - **Add-in does not appear** — confirm the message is opened in read mode, the manifest has real HTTPS URLs, and custom add-ins are permitted by the Microsoft 365 administrator.
 - **Task pane is blank** — open the configured `taskpane.html` URL directly, verify GitHub Pages deployment, HTTPS, and the browser console. Office.js only initializes fully inside Office.
 - **Unable to read this Outlook item** — confirm the current item is a received email rather than an appointment, compose form, or unsupported item type.
-- **Obsidian does not open** — confirm Obsidian is installed, the OS registered the `obsidian://` handler, and the configured vault name is exact.
+- **Browser does not open** — use the **Continue in browser** fallback link shown in the task pane.
+- **Obsidian does not open** — on the browser handoff page, select **Open Obsidian**; then confirm Obsidian is installed, the OS registered the `obsidian://` handler, and the configured vault name is exact.
 - **Large email warning** — the full note exceeded the conservative URI limit. Nothing was truncated. Version 1 intentionally has no network or local-storage fallback.
 - **Changes do not appear** — allow time for GitHub Pages and the Outlook webview cache to refresh; then close and reopen the task pane.
 
