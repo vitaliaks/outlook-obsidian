@@ -1,10 +1,10 @@
 "use strict";
 
 const CONFIG = Object.freeze({
-  BUILD_VERSION: "1.1.0",
+  BUILD_VERSION: "1.2.0",
   DEFAULT_TARGET_FOLDER: "Inbox/Email",
   STORAGE_KEY: "outlook-to-obsidian-settings-v1",
-  MAX_HANDOFF_URL_LENGTH: 8000
+  MAX_OBSIDIAN_URI_LENGTH: 8000
 });
 
 const saveButton = document.getElementById("save-button");
@@ -14,7 +14,7 @@ const vaultNameInput = document.getElementById("vault-name");
 const targetFolderInput = document.getElementById("target-folder");
 const resetSettingsButton = document.getElementById("reset-settings");
 const copyAndContinueButton = document.getElementById("copy-and-continue");
-const continueLink = document.getElementById("continue-link");
+const openObsidianLink = document.getElementById("open-obsidian-link");
 const debugOutput = document.getElementById("debug-output");
 const copyDebugButton = document.getElementById("copy-debug");
 const appVersionElement = document.getElementById("app-version");
@@ -25,7 +25,7 @@ debugLog("Script loaded", { build: CONFIG.BUILD_VERSION });
 
 let settings = loadSettings();
 let officeReady = false;
-let pendingHandoff = null;
+let pendingSave = null;
 showSettings(settings);
 debugLog("Settings loaded", { configured: Boolean(settings) });
 updateSaveButton();
@@ -66,8 +66,7 @@ if (officeApiDetected) {
       source: "Office.onReady",
       host: textOrEmpty(info.host) || "unknown",
       platform: textOrEmpty(info.platform) || "unknown",
-      outlookReady: officeReady,
-      openBrowserWindow: Boolean(Office.context.ui && typeof Office.context.ui.openBrowserWindow === "function")
+      outlookReady: officeReady
     });
     if (!officeReady) {
       debugLog("Unsupported host");
@@ -106,8 +105,8 @@ async function saveCurrentEmail() {
 
   saveButton.disabled = true;
   copyAndContinueButton.hidden = true;
-  continueLink.hidden = true;
-  pendingHandoff = null;
+  openObsidianLink.hidden = true;
+  pendingSave = null;
   setStatus("Reading email...");
 
   try {
@@ -136,30 +135,28 @@ async function saveCurrentEmail() {
     const markdown = createMarkdown(email);
     const fileName = createFileName(email.date, email.subject);
     const uri = createObsidianUri(fileName, settings);
-    const bridgeUrl = createBridgeUrl(uri);
     debugLog("Note prepared", {
       markdownCharacters: markdown.length,
       obsidianUriCharacters: uri.length,
-      handoffUrlCharacters: bridgeUrl.length,
-      limit: CONFIG.MAX_HANDOFF_URL_LENGTH
+      limit: CONFIG.MAX_OBSIDIAN_URI_LENGTH
     });
 
-    if (bridgeUrl.length > CONFIG.MAX_HANDOFF_URL_LENGTH) {
-      debugLog("Save stopped", { reason: "handoff URL exceeds limit" });
+    if (uri.length > CONFIG.MAX_OBSIDIAN_URI_LENGTH) {
+      debugLog("Save stopped", { reason: "Obsidian URI exceeds limit" });
       setStatus("The vault or file path is too long to open safely.", true);
       return;
     }
 
     const copied = await writeClipboardText(markdown);
     if (!copied) {
-      pendingHandoff = { markdown, bridgeUrl };
+      pendingSave = { markdown, uri };
       copyAndContinueButton.hidden = false;
       debugLog("Clipboard retry offered");
       setStatus("Outlook blocked automatic clipboard access. Select Copy note and continue.", true);
       return;
     }
 
-    continueWithHandoff(bridgeUrl);
+    openObsidian(uri);
   } catch (error) {
     console.error("Unable to create Obsidian note:", error);
     debugLog("Save failed", safeError(error));
@@ -247,9 +244,9 @@ function updateSaveButton() {
 }
 
 function clearPendingHandoff() {
-  pendingHandoff = null;
+  pendingSave = null;
   copyAndContinueButton.hidden = true;
-  continueLink.hidden = true;
+  openObsidianLink.hidden = true;
 }
 
 function getBodyAsText(body) {
@@ -352,34 +349,35 @@ function createObsidianUri(fileName, currentSettings) {
   return `obsidian://new?${params.toString()}`;
 }
 
-function createBridgeUrl(obsidianUri) {
-  const bridge = new URL("open-obsidian.html?v=1.1.0", window.location.href);
-  bridge.hash = encodeURIComponent(obsidianUri);
-  return bridge.toString();
-}
-
 async function copyPendingNoteAndContinue() {
-  if (!pendingHandoff) return;
+  if (!pendingSave) return;
 
   copyAndContinueButton.disabled = true;
-  const copied = await writeClipboardText(pendingHandoff.markdown);
+  const copied = await writeClipboardText(pendingSave.markdown);
   copyAndContinueButton.disabled = false;
   if (!copied) {
     setStatus("Clipboard access is blocked by Outlook or your browser settings.", true);
     return;
   }
 
-  const bridgeUrl = pendingHandoff.bridgeUrl;
-  pendingHandoff = null;
+  const uri = pendingSave.uri;
+  pendingSave = null;
   copyAndContinueButton.hidden = true;
-  continueWithHandoff(bridgeUrl);
+  openObsidian(uri);
 }
 
-function continueWithHandoff(bridgeUrl) {
-  continueLink.href = bridgeUrl;
-  continueLink.hidden = false;
-  debugLog("Markdown copied and fallback link displayed");
-  openBridge(bridgeUrl);
+function openObsidian(uri) {
+  openObsidianLink.href = uri;
+  openObsidianLink.hidden = false;
+  debugLog("Direct Obsidian launch requested");
+  setStatus("Opening Obsidian… If nothing happens, select Open Obsidian.");
+
+  try {
+    openObsidianLink.click();
+    debugLog("Direct Obsidian link selected programmatically");
+  } catch (error) {
+    debugLog("Automatic Obsidian launch failed", safeError(error));
+  }
 }
 
 async function writeClipboardText(text) {
@@ -417,26 +415,6 @@ async function writeClipboardText(text) {
   } finally {
     textArea.remove();
   }
-}
-
-function openBridge(bridgeUrl) {
-  debugLog("Browser handoff requested", {
-    officeApiAvailable: Boolean(Office.context.ui && typeof Office.context.ui.openBrowserWindow === "function")
-  });
-  if (Office.context.ui && typeof Office.context.ui.openBrowserWindow === "function") {
-    try {
-      Office.context.ui.openBrowserWindow(bridgeUrl);
-      debugLog("Office openBrowserWindow returned without throwing");
-      setStatus("Continue in the browser window to open Obsidian.");
-      return;
-    } catch (error) {
-      console.error("Unable to open the browser automatically:", error);
-      debugLog("Office openBrowserWindow threw", safeError(error));
-    }
-  }
-
-  setStatus("Select Continue in browser to open Obsidian.");
-  debugLog("Manual browser handoff required");
 }
 
 async function copyDiagnostics() {
@@ -481,8 +459,7 @@ function markOfficeReady(source) {
   officeReady = Boolean(Office.context && Office.context.mailbox);
   debugLog("Office initialization fallback", {
     source,
-    mailboxAvailable: officeReady,
-    openBrowserWindow: Boolean(Office.context && Office.context.ui && typeof Office.context.ui.openBrowserWindow === "function")
+    mailboxAvailable: officeReady
   });
   setStatus(officeReady ? (settings ? "Ready" : "Enter and save your Obsidian settings.") : "Outlook mailbox API is unavailable.", !officeReady);
 }

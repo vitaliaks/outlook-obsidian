@@ -77,18 +77,6 @@ button.secondary {
 
 .action-fallback { margin-top: 0.75rem; }
 
-.button-link {
-  display: block;
-  padding: 0.75rem 1rem;
-  border-radius: 0.35rem;
-  background: #0b5cab;
-  color: #fff;
-  font-weight: 650;
-  text-decoration: none;
-}
-
-.button-link[hidden] { display: none; }
-
 .settings-note {
   margin: 0.75rem 0 0;
   color: #52606d;

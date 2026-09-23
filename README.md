@@ -6,7 +6,7 @@ A minimal Outlook add-in that reads the currently opened email, generates Markdo
 
 ## Architecture
 
-The project has no build step and no backend. It uses static HTML and CSS, vanilla JavaScript, Microsoft Office.js, the system clipboard, and an `obsidian://new` URI. Because Office webviews don't support opening custom protocols directly, a static HTTPS handoff page opens in the system browser first. It has no Node.js runtime, package dependencies, database, analytics, telemetry, cookies, or other application APIs.
+The project has no build step and no backend. It uses static HTML and CSS, vanilla JavaScript, Microsoft Office.js, the system clipboard, and a direct `obsidian://new` link. It has no Node.js runtime, package dependencies, database, analytics, telemetry, cookies, or other application APIs.
 
 The only external runtime resource is Microsoft Office.js, loaded from Microsoft's official CDN at `https://appsforoffice.microsoft.com/lib/1/hosted/office.js`, as required for Office add-ins. Icons, styles, and application code are served from this repository's GitHub Pages site.
 
@@ -18,7 +18,7 @@ The only external runtime resource is Microsoft Office.js, loaded from Microsoft
 - It stores no email data in localStorage, sessionStorage, IndexedDB, cookies, or remote storage. Only the user-entered vault name and target folder are kept in localStorage.
 - Markdown and YAML are generated locally. Dynamic content is never inserted into task-pane HTML.
 - The generated Markdown is placed in the system clipboard and Obsidian reads it through the supported `clipboard=true` URI parameter. This avoids URL-length limits but temporarily replaces the user's clipboard contents.
-- The browser handoff carries only the encoded Obsidian destination URI in a URL fragment. The note content is not present in that URL. URL fragments aren't included in HTTP requests, and the handoff page removes the fragment from the address bar immediately after reading it.
+- The task pane opens the local `obsidian://` protocol directly. Neither the note nor its destination passes through an intermediate web page.
 - The task pane includes an in-memory diagnostics panel. It records only execution stages, client capability flags, character counts, and sanitized errors—never email content, subject, sender, recipients, filenames, settings values, or generated URLs. Diagnostics aren't transmitted or persisted.
 - There are no secrets, credentials, analytics, or telemetry.
 
@@ -31,7 +31,6 @@ See [privacy.html](privacy.html) for the user-facing privacy statement.
 - `manifest.xml` — sideloadable Outlook add-in manifest.
 - `index.html` — GitHub Pages landing page.
 - `taskpane.html`, `taskpane.js`, `styles.css` — task pane UI and local conversion logic.
-- `open-obsidian.html`, `open-obsidian.js` — static browser handoff for launching the local Obsidian URI handler.
 - `privacy.html` — privacy statement.
 - `icons/` — local PNG manifest icons.
 - `.nojekyll` — prevents Jekyll processing on GitHub Pages.
@@ -82,7 +81,7 @@ This XML add-in manifest targets Outlook on the web and Outlook on Mac where the
 2. Open an email containing quotes, colons, non-ASCII characters, multiple To/CC recipients, and a multiline body.
 3. Open the add-in and select **Save to Obsidian**.
 4. If Outlook blocks the first clipboard attempt, select **Copy note and continue**.
-5. In the browser handoff page, select **Open Obsidian** and approve the browser prompt.
+5. If Obsidian does not open automatically, select **Open Obsidian** in the task pane and approve the client prompt.
 6. Verify the note appears under `Inbox/Email`, its YAML parses, and Outlook's item remains unchanged.
 7. Repeat with missing CC, a missing sender/date where possible, and a long email well beyond 8,000 characters.
 8. In browser developer tools, verify there are no application network requests containing email data. Loading Office.js from Microsoft's CDN is expected.
@@ -93,12 +92,12 @@ This XML add-in manifest targets Outlook on the web and Outlook on Mac where the
 - Outlook's plain-text body conversion can lose formatting from HTML messages. The add-in deliberately requests `Office.CoercionType.Text`.
 - File names are sanitized and the subject portion is limited to 120 characters for filesystem compatibility; the email subject inside the note and the email body are not truncated.
 - `overwrite=false` is requested. How a name collision is presented or resolved depends on the installed Obsidian version.
-- Outlook client and tenant policies determine whether custom add-ins are allowed. The system browser and macOS determine whether the final custom-protocol navigation is approved.
+- Outlook client and tenant policies determine whether custom add-ins and direct custom-protocol navigation are allowed.
 - Saving temporarily replaces the system clipboard with the generated Markdown. Clipboard permissions and corporate browser policies can block this operation.
 
 ### Large emails and clipboard transfer
 
-The note content is transferred through the system clipboard rather than the URL, so long emails are not subject to browser or protocol-handler URL limits. The compact handoff URL is still capped at 8,000 characters as a defensive check; in practice only an unusually long vault, folder, or filename can reach that limit. If automatic clipboard access is rejected, the add-in displays **Copy note and continue** so the user can retry from an explicit click.
+The note content is transferred through the system clipboard rather than the URL, so long emails are not subject to browser or protocol-handler URL limits. The compact Obsidian URI is still capped at 8,000 characters as a defensive check; in practice only an unusually long vault, folder, or filename can reach that limit. If automatic clipboard access is rejected, the add-in displays **Copy note and continue** so the user can retry from an explicit click.
 
 ## Troubleshooting
 
@@ -106,11 +105,10 @@ The note content is transferred through the system clipboard rather than the URL
 - **Add-in does not appear** — confirm the message is opened in read mode, the manifest has real HTTPS URLs, and custom add-ins are permitted by the Microsoft 365 administrator.
 - **Task pane is blank** — open the configured `taskpane.html` URL directly, verify GitHub Pages deployment, HTTPS, and the browser console. Office.js only initializes fully inside Office.
 - **Unable to read this Outlook item** — confirm the current item is a received email rather than an appointment, compose form, or unsupported item type.
-- **Browser does not open** — use the **Continue in browser** fallback link shown in the task pane.
-- **Obsidian does not open** — on the browser handoff page, select **Open Obsidian**; then confirm Obsidian is installed, the OS registered the `obsidian://` handler, and the configured vault name is exact.
+- **Obsidian does not open** — select **Open Obsidian** in the task pane; then confirm Obsidian is installed, the OS registered the `obsidian://` handler, the configured vault name is exact, and Outlook allows custom-protocol navigation.
 - **Clipboard access is blocked** — select **Copy note and continue**. If it still fails, allow clipboard access for the add-in or review the organization's browser and Outlook policies.
 - **Changes do not appear** — allow time for GitHub Pages and the Outlook webview cache to refresh; then close and reopen the task pane.
-- **Nothing happens after Save to Obsidian** — expand **Diagnostics**, select **Save to Obsidian** again, then copy or screenshot the diagnostic events. The events identify whether the failure occurs while reading Outlook, constructing the URI, opening the browser, or launching the protocol handler.
+- **Nothing happens after Save to Obsidian** — expand **Diagnostics**, select **Save to Obsidian** again, then copy or screenshot the diagnostic events. The events identify whether the failure occurs while reading Outlook, copying the note, constructing the URI, or launching the protocol handler.
 
 ## Security review checklist
 
