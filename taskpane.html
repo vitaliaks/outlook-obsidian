@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src https://officeapis.public.onecdn.static.microsoft https://appsforoffice.microsoft.com 'self'; style-src 'self'; img-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none';">
   <title>Outlook to Obsidian</title>
-  <link rel="stylesheet" href="styles.css?v=1.2.0">
+  <link rel="stylesheet" href="styles.css?v=1.2.1">
   <script src="https://officeapis.public.onecdn.static.microsoft/1/office.js"></script>
-  <script src="taskpane.js?v=1.2.0" defer></script>
+  <script src="taskpane.js?v=1.2.1" defer></script>
 </head>
 <body>
   <main class="shell taskpane">
@@ -34,12 +34,6 @@
     <a id="open-obsidian-link" class="continue-link" href="#" target="_blank" rel="noopener noreferrer" hidden>Open Obsidian</a>
     <p id="status" class="status" role="status" aria-live="polite">Loading…</p>
 
-    <details class="debug-panel" open>
-      <summary>Diagnostics</summary>
-      <pre id="debug-output" aria-live="polite"></pre>
-      <button id="copy-debug" class="secondary" type="button">Copy diagnostics</button>
-      <p class="settings-note">Diagnostics contain no email content, subject, addresses, or generated URI.</p>
-    </details>
   </main>
 </body>
 </html>

@@ -1,7 +1,7 @@
 "use strict";
 
 const CONFIG = Object.freeze({
-  BUILD_VERSION: "1.2.0",
+  BUILD_VERSION: "1.2.1",
   DEFAULT_TARGET_FOLDER: "Inbox/Email",
   STORAGE_KEY: "outlook-to-obsidian-settings-v1",
   MAX_OBSIDIAN_URI_LENGTH: 8000
@@ -15,90 +15,53 @@ const targetFolderInput = document.getElementById("target-folder");
 const resetSettingsButton = document.getElementById("reset-settings");
 const copyAndContinueButton = document.getElementById("copy-and-continue");
 const openObsidianLink = document.getElementById("open-obsidian-link");
-const debugOutput = document.getElementById("debug-output");
-const copyDebugButton = document.getElementById("copy-debug");
 const appVersionElement = document.getElementById("app-version");
-const debugEvents = [];
 
 appVersionElement.textContent = CONFIG.BUILD_VERSION;
-debugLog("Script loaded", { build: CONFIG.BUILD_VERSION });
 
 let settings = loadSettings();
 let officeReady = false;
 let pendingSave = null;
 showSettings(settings);
-debugLog("Settings loaded", { configured: Boolean(settings) });
 updateSaveButton();
 
 settingsForm.addEventListener("submit", saveSettings);
 resetSettingsButton.addEventListener("click", resetSettings);
-copyDebugButton.addEventListener("click", copyDiagnostics);
 copyAndContinueButton.addEventListener("click", copyPendingNoteAndContinue);
 saveButton.addEventListener("click", saveCurrentEmail);
 
-window.addEventListener("error", (event) => {
-  if (event.target && event.target !== window) {
-    debugLog("Resource load failed", {
-      element: textOrEmpty(event.target.tagName).toLowerCase() || "unknown",
-      resource: safeResourceUrl(event.target.src || event.target.href)
-    });
-    return;
-  }
-  debugLog("Unhandled error", safeError(event.error || event.message));
-}, true);
-
-window.addEventListener("unhandledrejection", (event) => {
-  debugLog("Unhandled promise rejection", safeError(event.reason));
-});
-
 const officeApiDetected = typeof Office !== "undefined" && typeof Office.onReady === "function";
-debugLog("Office API detected", { detected: officeApiDetected });
 
 if (officeApiDetected) {
-  Office.initialize = (reason) => {
-    debugLog("Office.initialize called", { reason: String(reason || "unknown") });
-    markOfficeReady("Office.initialize");
-  };
+  Office.initialize = markOfficeReady;
 
   Office.onReady((info) => {
     officeReady = info.host === Office.HostType.Outlook || Boolean(Office.context.mailbox);
-    debugLog("Office ready", {
-      source: "Office.onReady",
-      host: textOrEmpty(info.host) || "unknown",
-      platform: textOrEmpty(info.platform) || "unknown",
-      outlookReady: officeReady
-    });
     if (!officeReady) {
-      debugLog("Unsupported host");
       setStatus("This page must be opened from Outlook.", true);
       return;
     }
 
     setStatus(settings ? "Ready" : "Enter and save your Obsidian settings.");
-  }).catch((error) => {
-    debugLog("Office.onReady rejected", safeError(error));
-    setStatus("Office.js initialization failed. See Diagnostics.", true);
+  }).catch(() => {
+    setStatus("Office.js initialization failed.", true);
   });
 } else {
-  setStatus("Office.js did not load. See Diagnostics.", true);
+  setStatus("Office.js did not load.", true);
 }
 
 window.setTimeout(() => {
   if (!officeReady) {
-    debugLog("Office initialization timeout", { milliseconds: 15000 });
-    setStatus("Office.js is not ready. See Diagnostics.", true);
+    setStatus("Office.js is not ready.", true);
   }
 }, 15000);
 
 async function saveCurrentEmail() {
-  debugLog("Save button selected");
   if (!officeReady) {
-    debugLog("Save stopped", { reason: "Office is not ready" });
-    setStatus("Office.js is not ready. See Diagnostics.", true);
+    setStatus("Office.js is not ready.", true);
     return;
   }
   if (!settings) {
-    debugLog("Save stopped", { reason: "settings missing" });
     setStatus("Enter and save your Obsidian settings first.", true);
     return;
   }
@@ -111,18 +74,11 @@ async function saveCurrentEmail() {
 
   try {
     const item = Office.context.mailbox && Office.context.mailbox.item;
-    debugLog("Outlook item inspected", {
-      present: Boolean(item),
-      type: item && item.itemType ? String(item.itemType) : "unknown",
-      hasBody: Boolean(item && item.body)
-    });
     if (!item || item.itemType !== Office.MailboxEnums.ItemType.Message || !item.body) {
       throw new Error("The current Outlook item is not a readable email message.");
     }
 
-    debugLog("Body read requested", { coercion: "text" });
     const body = await getBodyAsText(item.body);
-    debugLog("Body read succeeded", { characters: textOrEmpty(body).length });
     const email = {
       subject: textOrEmpty(item.subject),
       from: formatAddress(item.from || item.sender),
@@ -135,14 +91,7 @@ async function saveCurrentEmail() {
     const markdown = createMarkdown(email);
     const fileName = createFileName(email.date, email.subject);
     const uri = createObsidianUri(fileName, settings);
-    debugLog("Note prepared", {
-      markdownCharacters: markdown.length,
-      obsidianUriCharacters: uri.length,
-      limit: CONFIG.MAX_OBSIDIAN_URI_LENGTH
-    });
-
     if (uri.length > CONFIG.MAX_OBSIDIAN_URI_LENGTH) {
-      debugLog("Save stopped", { reason: "Obsidian URI exceeds limit" });
       setStatus("The vault or file path is too long to open safely.", true);
       return;
     }
@@ -151,7 +100,6 @@ async function saveCurrentEmail() {
     if (!copied) {
       pendingSave = { markdown, uri };
       copyAndContinueButton.hidden = false;
-      debugLog("Clipboard retry offered");
       setStatus("Outlook blocked automatic clipboard access. Select Copy note and continue.", true);
       return;
     }
@@ -159,7 +107,6 @@ async function saveCurrentEmail() {
     openObsidian(uri);
   } catch (error) {
     console.error("Unable to create Obsidian note:", error);
-    debugLog("Save failed", safeError(error));
     setStatus("Unable to read this Outlook item.", true);
   } finally {
     saveButton.disabled = false;
@@ -180,11 +127,9 @@ function saveSettings(event) {
     showSettings(settings);
     updateSaveButton();
     setStatus("Settings saved locally.");
-    debugLog("Settings saved", { configured: true });
   } catch (error) {
     console.error("Unable to save settings:", error);
     setStatus(error.message || "Unable to save settings locally.", true);
-    debugLog("Settings save failed", safeError(error));
   }
 }
 
@@ -200,7 +145,6 @@ function resetSettings() {
   showSettings(null);
   updateSaveButton();
   setStatus("Settings reset.");
-  debugLog("Settings reset");
 }
 
 function loadSettings() {
@@ -369,14 +313,12 @@ async function copyPendingNoteAndContinue() {
 function openObsidian(uri) {
   openObsidianLink.href = uri;
   openObsidianLink.hidden = false;
-  debugLog("Direct Obsidian launch requested");
   setStatus("Opening Obsidian… If nothing happens, select Open Obsidian.");
 
   try {
     openObsidianLink.click();
-    debugLog("Direct Obsidian link selected programmatically");
   } catch (error) {
-    debugLog("Automatic Obsidian launch failed", safeError(error));
+    console.error("Unable to open Obsidian automatically:", error);
   }
 }
 
@@ -384,11 +326,8 @@ async function writeClipboardText(text) {
   if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
     try {
       await navigator.clipboard.writeText(text);
-      debugLog("Clipboard write succeeded", { method: "async-api", characters: text.length });
       return true;
-    } catch (error) {
-      debugLog("Async clipboard write failed", safeError(error));
-    }
+    } catch {}
   }
 
   const textArea = document.createElement("textarea");
@@ -403,64 +342,16 @@ async function writeClipboardText(text) {
   textArea.select();
 
   try {
-    const copied = document.execCommand("copy");
-    debugLog(copied ? "Clipboard write succeeded" : "Legacy clipboard write rejected", {
-      method: "exec-command",
-      characters: text.length
-    });
-    return copied;
-  } catch (error) {
-    debugLog("Legacy clipboard write failed", safeError(error));
+    return document.execCommand("copy");
+  } catch {
     return false;
   } finally {
     textArea.remove();
   }
 }
 
-async function copyDiagnostics() {
-  try {
-    await navigator.clipboard.writeText(debugOutput.textContent);
-    setStatus("Diagnostics copied.");
-  } catch (error) {
-    debugLog("Copy diagnostics failed", safeError(error));
-    setStatus("Unable to copy diagnostics. Take a screenshot instead.", true);
-  }
-}
-
-function debugLog(event, details) {
-  const time = new Date().toISOString().slice(11, 23);
-  const suffix = details === undefined ? "" : ` ${JSON.stringify(details)}`;
-  debugEvents.push(`${time} ${event}${suffix}`);
-  if (debugEvents.length > 40) debugEvents.shift();
-  if (debugOutput) debugOutput.textContent = debugEvents.join("\n");
-}
-
-function safeError(error) {
-  const value = error && typeof error === "object" ? error : { message: String(error || "Unknown error") };
-  return {
-    name: textOrEmpty(value.name).slice(0, 80) || "Error",
-    code: value.code === undefined ? "" : String(value.code).slice(0, 80),
-    message: textOrEmpty(value.message)
-      .replace(/[\w.+-]+@[\w.-]+/g, "[email redacted]")
-      .slice(0, 240) || "No error message"
-  };
-}
-
-function safeResourceUrl(value) {
-  try {
-    const url = new URL(String(value || ""), window.location.href);
-    return `${url.origin}${url.pathname}`;
-  } catch (error) {
-    return "unknown";
-  }
-}
-
-function markOfficeReady(source) {
+function markOfficeReady() {
   officeReady = Boolean(Office.context && Office.context.mailbox);
-  debugLog("Office initialization fallback", {
-    source,
-    mailboxAvailable: officeReady
-  });
   setStatus(officeReady ? (settings ? "Ready" : "Enter and save your Obsidian settings.") : "Outlook mailbox API is unavailable.", !officeReady);
 }
 

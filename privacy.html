@@ -13,7 +13,6 @@
     <p>All email processing and Markdown generation happen locally inside the Outlook add-in. The generated note is placed in the system clipboard, temporarily replacing its previous contents. Obsidian reads the note locally through the supported <code>clipboard=true</code> URI parameter.</p>
     <p>The add-in invokes the locally registered <code>obsidian://</code> protocol directly from the Outlook task pane. It does not send the note or its destination through an intermediate web page.</p>
     <p>The add-in stores only the user-entered Obsidian vault name and target folder in the task pane’s local browser storage. Email content and Outlook metadata are never stored there. Settings can be removed with the Reset button.</p>
-    <p>The diagnostics panel keeps a short event log only in memory. It contains execution stages, capability flags, character counts, and sanitized error messages. It does not contain email content, subject, sender, recipients, filenames, configuration values, or generated URLs, and it is not transmitted or persisted.</p>
     <p>GitHub Pages only serves the add-in’s static HTML, CSS, JavaScript, and image files. Microsoft’s official Office.js CDN serves Office.js; email content is not sent to that CDN by this add-in.</p>
     <p><a href="index.html">Back</a></p>
   </main>

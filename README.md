@@ -19,7 +19,6 @@ The only external runtime resource is Microsoft Office.js, loaded from Microsoft
 - Markdown and YAML are generated locally. Dynamic content is never inserted into task-pane HTML.
 - The generated Markdown is placed in the system clipboard and Obsidian reads it through the supported `clipboard=true` URI parameter. This avoids URL-length limits but temporarily replaces the user's clipboard contents.
 - The task pane opens the local `obsidian://` protocol directly. Neither the note nor its destination passes through an intermediate web page.
-- The task pane includes an in-memory diagnostics panel. It records only execution stages, client capability flags, character counts, and sanitized errors—never email content, subject, sender, recipients, filenames, settings values, or generated URLs. Diagnostics aren't transmitted or persisted.
 - There are no secrets, credentials, analytics, or telemetry.
 
 The manifest requests `ReadItem`, the minimum permission needed to read the current message body and metadata. It does not request `ReadWriteMailbox` or `ReadWriteItem`.
@@ -108,7 +107,7 @@ The note content is transferred through the system clipboard rather than the URL
 - **Obsidian does not open** — select **Open Obsidian** in the task pane; then confirm Obsidian is installed, the OS registered the `obsidian://` handler, the configured vault name is exact, and Outlook allows custom-protocol navigation.
 - **Clipboard access is blocked** — select **Copy note and continue**. If it still fails, allow clipboard access for the add-in or review the organization's browser and Outlook policies.
 - **Changes do not appear** — allow time for GitHub Pages and the Outlook webview cache to refresh; then close and reopen the task pane.
-- **Nothing happens after Save to Obsidian** — expand **Diagnostics**, select **Save to Obsidian** again, then copy or screenshot the diagnostic events. The events identify whether the failure occurs while reading Outlook, copying the note, constructing the URI, or launching the protocol handler.
+- **Nothing happens after Save to Obsidian** — select **Save to Obsidian** again, then use the displayed **Open Obsidian** link. Confirm that clipboard access and the `obsidian://` protocol are allowed.
 
 ## Security review checklist
 
