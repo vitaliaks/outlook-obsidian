@@ -75,6 +75,8 @@ button.secondary {
   color: inherit;
 }
 
+.action-fallback { margin-top: 0.75rem; }
+
 .button-link {
   display: block;
   padding: 0.75rem 1rem;

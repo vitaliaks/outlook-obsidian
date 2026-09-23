@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src https://officeapis.public.onecdn.static.microsoft https://appsforoffice.microsoft.com 'self'; style-src 'self'; img-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none';">
   <title>Outlook to Obsidian</title>
-  <link rel="stylesheet" href="styles.css?v=1.0.4">
+  <link rel="stylesheet" href="styles.css?v=1.1.0">
   <script src="https://officeapis.public.onecdn.static.microsoft/1/office.js"></script>
-  <script src="taskpane.js?v=1.0.4" defer></script>
+  <script src="taskpane.js?v=1.1.0" defer></script>
 </head>
 <body>
   <main class="shell taskpane">
@@ -30,6 +30,7 @@
     </form>
 
     <button id="save-button" type="button" disabled>Save to Obsidian</button>
+    <button id="copy-and-continue" class="secondary action-fallback" type="button" hidden>Copy note and continue</button>
     <a id="continue-link" class="continue-link" href="#" target="_blank" rel="noopener noreferrer" hidden>Continue in browser</a>
     <p id="status" class="status" role="status" aria-live="polite">Loading…</p>
 

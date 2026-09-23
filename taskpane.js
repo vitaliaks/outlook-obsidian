@@ -1,10 +1,10 @@
 "use strict";
 
 const CONFIG = Object.freeze({
-  BUILD_VERSION: "1.0.4",
+  BUILD_VERSION: "1.1.0",
   DEFAULT_TARGET_FOLDER: "Inbox/Email",
   STORAGE_KEY: "outlook-to-obsidian-settings-v1",
-  MAX_OBSIDIAN_URI_LENGTH: 8000
+  MAX_HANDOFF_URL_LENGTH: 8000
 });
 
 const saveButton = document.getElementById("save-button");
@@ -13,6 +13,7 @@ const settingsForm = document.getElementById("settings-form");
 const vaultNameInput = document.getElementById("vault-name");
 const targetFolderInput = document.getElementById("target-folder");
 const resetSettingsButton = document.getElementById("reset-settings");
+const copyAndContinueButton = document.getElementById("copy-and-continue");
 const continueLink = document.getElementById("continue-link");
 const debugOutput = document.getElementById("debug-output");
 const copyDebugButton = document.getElementById("copy-debug");
@@ -24,6 +25,7 @@ debugLog("Script loaded", { build: CONFIG.BUILD_VERSION });
 
 let settings = loadSettings();
 let officeReady = false;
+let pendingHandoff = null;
 showSettings(settings);
 debugLog("Settings loaded", { configured: Boolean(settings) });
 updateSaveButton();
@@ -31,6 +33,7 @@ updateSaveButton();
 settingsForm.addEventListener("submit", saveSettings);
 resetSettingsButton.addEventListener("click", resetSettings);
 copyDebugButton.addEventListener("click", copyDiagnostics);
+copyAndContinueButton.addEventListener("click", copyPendingNoteAndContinue);
 saveButton.addEventListener("click", saveCurrentEmail);
 
 window.addEventListener("error", (event) => {
@@ -102,7 +105,9 @@ async function saveCurrentEmail() {
   }
 
   saveButton.disabled = true;
+  copyAndContinueButton.hidden = true;
   continueLink.hidden = true;
+  pendingHandoff = null;
   setStatus("Reading email...");
 
   try {
@@ -130,26 +135,31 @@ async function saveCurrentEmail() {
 
     const markdown = createMarkdown(email);
     const fileName = createFileName(email.date, email.subject);
-    const uri = createObsidianUri(fileName, markdown, settings);
+    const uri = createObsidianUri(fileName, settings);
     const bridgeUrl = createBridgeUrl(uri);
     debugLog("Note prepared", {
       markdownCharacters: markdown.length,
       obsidianUriCharacters: uri.length,
       handoffUrlCharacters: bridgeUrl.length,
-      limit: CONFIG.MAX_OBSIDIAN_URI_LENGTH
+      limit: CONFIG.MAX_HANDOFF_URL_LENGTH
     });
 
-    if (bridgeUrl.length > CONFIG.MAX_OBSIDIAN_URI_LENGTH) {
+    if (bridgeUrl.length > CONFIG.MAX_HANDOFF_URL_LENGTH) {
       debugLog("Save stopped", { reason: "handoff URL exceeds limit" });
-      setStatus("Email is too large for safe URI transfer. Nothing was truncated or sent.", true);
+      setStatus("The vault or file path is too long to open safely.", true);
       return;
     }
 
-    continueLink.href = bridgeUrl;
-    continueLink.hidden = false;
-    debugLog("Fallback link displayed");
+    const copied = await writeClipboardText(markdown);
+    if (!copied) {
+      pendingHandoff = { markdown, bridgeUrl };
+      copyAndContinueButton.hidden = false;
+      debugLog("Clipboard retry offered");
+      setStatus("Outlook blocked automatic clipboard access. Select Copy note and continue.", true);
+      return;
+    }
 
-    openBridge(bridgeUrl);
+    continueWithHandoff(bridgeUrl);
   } catch (error) {
     console.error("Unable to create Obsidian note:", error);
     debugLog("Save failed", safeError(error));
@@ -169,6 +179,7 @@ function saveSettings(event) {
     });
     localStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify(nextSettings));
     settings = nextSettings;
+    clearPendingHandoff();
     showSettings(settings);
     updateSaveButton();
     setStatus("Settings saved locally.");
@@ -188,6 +199,7 @@ function resetSettings() {
   }
 
   settings = null;
+  clearPendingHandoff();
   showSettings(null);
   updateSaveButton();
   setStatus("Settings reset.");
@@ -232,6 +244,12 @@ function showSettings(value) {
 
 function updateSaveButton() {
   saveButton.disabled = !settings;
+}
+
+function clearPendingHandoff() {
+  pendingHandoff = null;
+  copyAndContinueButton.hidden = true;
+  continueLink.hidden = true;
 }
 
 function getBodyAsText(body) {
@@ -324,20 +342,81 @@ function createFileName(isoDate, subject) {
   return `${date ? date[0] : "Unknown date"} - ${safeSubject}`;
 }
 
-function createObsidianUri(fileName, content, currentSettings) {
+function createObsidianUri(fileName, currentSettings) {
   const params = new URLSearchParams({
     vault: currentSettings.vaultName,
     file: `${currentSettings.targetFolder}/${fileName}.md`,
-    content,
+    clipboard: "true",
     overwrite: "false"
   });
   return `obsidian://new?${params.toString()}`;
 }
 
 function createBridgeUrl(obsidianUri) {
-  const bridge = new URL("open-obsidian.html?v=1.0.4", window.location.href);
+  const bridge = new URL("open-obsidian.html?v=1.1.0", window.location.href);
   bridge.hash = encodeURIComponent(obsidianUri);
   return bridge.toString();
+}
+
+async function copyPendingNoteAndContinue() {
+  if (!pendingHandoff) return;
+
+  copyAndContinueButton.disabled = true;
+  const copied = await writeClipboardText(pendingHandoff.markdown);
+  copyAndContinueButton.disabled = false;
+  if (!copied) {
+    setStatus("Clipboard access is blocked by Outlook or your browser settings.", true);
+    return;
+  }
+
+  const bridgeUrl = pendingHandoff.bridgeUrl;
+  pendingHandoff = null;
+  copyAndContinueButton.hidden = true;
+  continueWithHandoff(bridgeUrl);
+}
+
+function continueWithHandoff(bridgeUrl) {
+  continueLink.href = bridgeUrl;
+  continueLink.hidden = false;
+  debugLog("Markdown copied and fallback link displayed");
+  openBridge(bridgeUrl);
+}
+
+async function writeClipboardText(text) {
+  if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+    try {
+      await navigator.clipboard.writeText(text);
+      debugLog("Clipboard write succeeded", { method: "async-api", characters: text.length });
+      return true;
+    } catch (error) {
+      debugLog("Async clipboard write failed", safeError(error));
+    }
+  }
+
+  const textArea = document.createElement("textarea");
+  textArea.value = text;
+  textArea.setAttribute("readonly", "");
+  textArea.setAttribute("aria-hidden", "true");
+  textArea.style.position = "fixed";
+  textArea.style.left = "-9999px";
+  textArea.style.top = "0";
+  document.body.appendChild(textArea);
+  textArea.focus();
+  textArea.select();
+
+  try {
+    const copied = document.execCommand("copy");
+    debugLog(copied ? "Clipboard write succeeded" : "Legacy clipboard write rejected", {
+      method: "exec-command",
+      characters: text.length
+    });
+    return copied;
+  } catch (error) {
+    debugLog("Legacy clipboard write failed", safeError(error));
+    return false;
+  } finally {
+    textArea.remove();
+  }
 }
 
 function openBridge(bridgeUrl) {
